@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>حاسبة فاتورة الغاز</title>
+<style>
+  :root{
+    --primary: #7c3aed; --primary-soft: #ede9fe; --ember: #d97706; --ember-soft: #fef3c7;
+    --bg: #f4f7fa; --card: #ffffff; --ink: #0f2438; --mute: #6b7f8f; --line: #d6e0e8;
+    --danger: #d63a3a; --success: #0d9668;
+  }
+  @media(prefers-color-scheme:dark), body[data-theme="dark"]{
+    :root{
+      --bg: #0a1722; --card: #1a2f42; --ink: #e7eff5; --mute: #8da4b4; --line: #2a4257;
+      --primary: #a78bfa; --primary-soft: #2e1065; --ember: #f5b53a; --ember-soft: #451a03;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,'Segoe UI',Tahoma,Roboto,sans-serif;background:var(--bg);color:var(--ink);margin:0;padding-bottom:30px;min-height:100vh;}
+  
+  /* الهيدر */
+  header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#fff;padding:20px 16px;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.15);border-radius:0 0 24px 24px;margin-bottom:15px;}
+  header h1{margin:0;font-size:18px;font-weight:800;}
+  header .updated{margin-top:8px;display:inline-block;background:rgba(255,255,255,.22);padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;}
+
+  .card{background:var(--card);margin:12px;border-radius:16px;padding:18px;box-shadow:0 4px 16px rgba(0,0,0,.04);border:1px solid var(--line);}
+  label{display:block;font-size:13px;font-weight:700;margin-bottom:7px;}
+  input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;font-size:16px;background:var(--bg);margin-bottom:12px;font-weight:600;color:var(--ink);}
+  input:focus{outline:none;border-color:var(--primary);}
+  input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+  input[type=number]{-moz-appearance:textfield;appearance:textfield;}
+
+  .mode-selector{display:flex;gap:8px;margin-bottom:14px;}
+  .mode-btn{flex:1;padding:12px;border:2px solid var(--line);border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;background:var(--card);color:var(--mute);transition:0.2s;}
+  .mode-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .input-box-container{margin-top:10px;animation:slideDown .3s ease-out;}
+  @keyframes slideDown{from{opacity:0;transform:translateY(-5px);}to{opacity:1;transform:translateY(0);}}
+  .hidden{display:none!important;}
+
+  #calcBtn{width:calc(100% - 24px);margin:14px 12px;padding:16px;font-size:16px;font-weight:800;background:var(--primary);color:#fff;border:none;border-radius:14px;cursor:pointer;box-shadow:0 4px 12px rgba(124,58,237,0.3);}
+  #archiveBtn{width:calc(100% - 24px);margin:0 12px 14px;padding:16px;font-size:16px;font-weight:800;background:var(--success);color:#fff;border:none;border-radius:14px;cursor:pointer;}
+  #currentPricesBtn{width:calc(100% - 24px);margin:0 12px 14px;padding:14px;font-size:14px;font-weight:800;background:var(--ember);color:#fff;border:none;border-radius:14px;cursor:pointer;}
+
+  /* المودال */
+  .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:15px;backdrop-filter:blur(4px);}
+  .modal{background:var(--card);border-radius:20px;width:100%;max-width:420px;overflow:hidden;box-shadow:0 25px 60px -12px rgba(0,0,0,0.4);max-height:90vh;display:flex;flex-direction:column;}
+  
+  /* كارت المبلغ (صغير ومضغوط) */
+  .modal-header{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#fff;padding:16px;text-align:center;}
+  .modal-header .bill-title{font-size:12px;font-weight:700;background:rgba(255,255,255,0.22);padding:4px 10px;border-radius:8px;display:inline-block;margin-bottom:6px;}
+  .modal-header .label{font-size:11px;opacity:.9;margin-bottom:2px;}
+  .modal-header .total{font-size:36px;font-weight:800;letter-spacing:-1px;line-height:1;margin:5px 0;direction:ltr;}
+  .modal-header .total-words{font-size:11px;font-weight:600;background:rgba(255,255,255,0.15);padding:6px 10px;border-radius:8px;display:inline-block;line-height:1.5;}
+
+  .modal-body{padding:15px;overflow-y:auto;flex:1;background:var(--bg);display:none;}
+  .modal-body.show{display:block;}
+  
+  /* التفاصيل (أكبر وأوضح) */
+  .details-container{display:none;}
+  .summary-box{background:var(--primary-soft);padding:12px;border-radius:12px;margin-bottom:15px;border:1px solid var(--primary);}
+  .summary-box .sb-title{font-weight:800;color:var(--primary);font-size:13px;margin-bottom:8px;text-align:center;}
+  .summary-box .sb-row{display:flex;justify-content:space-between;padding:6px 10px;background:var(--card);border-radius:6px;margin-bottom:4px;font-size:12px;}
+  .summary-box .sb-row .sb-value{color:var(--primary);font-weight:800;direction:ltr;}
+
+  .custom-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:10px;font-size:12px;}
+  .custom-table th{background:var(--primary);color:#fff;padding:8px;text-align:center;font-weight:700;}
+  .custom-table td{padding:8px;border-bottom:1px solid var(--line);text-align:center;font-weight:600;}
+  .custom-table .total-row td{background:var(--primary-soft);font-weight:800;color:var(--primary);border-top:2px solid var(--primary);font-size:13px;}
+
+  .modal-footer{padding:12px 15px;display:flex;flex-direction:column;gap:8px;background:var(--card);border-top:1px solid var(--line);}
+  .btn-toggle-details{background:var(--primary-soft);color:var(--primary);padding:12px;border:1px solid var(--primary);font-weight:800;border-radius:10px;font-size:14px;cursor:pointer;}
+  .btn-close{background:var(--ink);color:var(--bg);padding:12px;font-weight:700;border-radius:10px;font-size:14px;cursor:pointer;border:none;}
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="hdrTitle">🔥 حاسبة فاتورة الغاز</h1>
+  <div class="updated" id="updatedLabel">آخر تحديث للأسعار في —</div>
+</header>
+
+<div class="card hidden" id="clientInfoCard" style="background:var(--ember-soft); border-color:var(--ember); text-align:center; font-weight:800; color:var(--ember); padding:10px; margin-bottom:0;">
+  <div id="clientName" style="font-size:14px;">اسم العميل</div>
+  <div id="clientAddress" style="font-size:11px; margin-top:2px; opacity:0.8;">العنوان</div>
+</div>
+
+<div class="card">
+  <label id="labelMonths">عدد أشهر المحاسبة</label>
+  <input type="number" id="months" value="1" min="1" maxlength="3" inputmode="numeric" style="max-width:100px; text-align:center; margin:0 auto 15px; display:block;">
+
+  <div class="mode-selector">
+    <button type="button" class="mode-btn" id="modeReadingsBtn" onclick="setInputMode('readings')">📊 إدخال القراءات</button>
+    <button type="button" class="mode-btn" id="modeDirectBtn" onclick="setInputMode('direct')">🎯 الاستهلاك المباشر</button>
+  </div>
+
+  <div id="directModeBox" class="input-box-container hidden">
+    <label>الاستهلاك (متر مكعب)</label>
+    <input type="number" id="consumption" value="0" min="0" inputmode="decimal" maxlength="5">
+  </div>
+
+  <div id="readingsModeBox" class="input-box-container hidden">
+    <label>القراءة السابقة</label>
+    <input type="number" id="prevReading" value="0" min="0" inputmode="decimal" maxlength="5" style="max-width:120px; margin:0 auto 10px; text-align:center; display:block;">
+    <label>القراءة الحالية</label>
+    <input type="number" id="currReading" value="0" min="0" inputmode="decimal" maxlength="5" style="max-width:120px; margin:0 auto 10px; text-align:center; display:block;">
+    <div style="text-align:center; font-weight:800; color:var(--primary); font-size:14px; margin-top:10px;">
+      الاستهلاك: <span id="consumptionValue" style="font-size:18px; direction:ltr; display:inline-block;">0</span> m³
+    </div>
+    <div id="readingError" style="color:var(--danger);font-size:11px;font-weight:700;text-align:center;margin-top:5px;"></div>
+  </div>
+</div>
+
+<button id="calcBtn" onclick="performCalculation()">🧮 حساب الفاتورة</button>
+<button id="archiveBtn" class="hidden" onclick="saveToArchive()">💾 حفظ الفاتورة والقراءة في الأرشيف</button>
+<button id="currentPricesBtn" onclick="showCurrentPrices()">💰 الأسعار المطبقة حالياً</button>
+
+<script>
+/* ============================================================ */
+/* السكربت (تم الحفاظ على المنطق الأساسي بالكامل) */
+/* ============================================================ */
+const STORAGE_KEY = 'gasBillPeriods_v22';
+const FEES_KEY = 'gasBillFees_v22';
+let clientData = null; 
+
+const DEFAULT_PERIODS = [
+  { date:'2016-11-01', tiers:[{name:'الأولى',limit:30,price:0.75},{name:'الثانية',limit:60,price:1.50},{name:'الثالثة',limit:null,price:2.00}] },
+  { date:'2017-07-01', tiers:[{name:'الأولى',limit:30,price:1.00},{name:'الثانية',limit:60,price:1.75},{name:'الثالثة',limit:null,price:2.50}] },
+  { date:'2018-08-01', tiers:[{name:'الأولى',limit:30,price:1.75},{name:'الثانية',limit:60,price:2.50},{name:'الثالثة',limit:null,price:3.15}] },
+  { date:'2019-07-01', tiers:[{name:'الأولى',limit:30,price:2.35},{name:'الثانية',limit:60,price:3.10},{name:'الثالثة',limit:null,price:3.60}] },
+  { date:'2021-10-01', tiers:[{name:'الأولى',limit:30,price:2.50},{name:'الثانية',limit:60,price:3.25},{name:'الثالثة',limit:null,price:3.75}] },
+  { date:'2024-09-01', tiers:[{name:'الأولى',limit:30,price:3.00},{name:'الثانية',limit:60,price:4.00},{name:'الثالثة',limit:null,price:5.00}] },
+  { date:'2025-06-01', tiers:[{name:'الأولى',limit:30,price:4.00},{name:'الثانية',limit:60,price:5.00},{name:'الثالثة',limit:null,price:6.00}] },
+  { date:'2025-10-01', tiers:[{name:'الأولى',limit:30,price:5.00},{name:'الثانية',limit:60,price:6.00},{name:'الثالثة',limit:null,price:9.00}] },
+  { date:'2026-03-01', tiers:[{name:'الأولى',limit:30,price:6.00},{name:'الثانية',limit:60,price:8.00},{name:'الثالثة',limit:null,price:12.00}] }
+];
+
+let periods = [];
+let fees = 18;
+let inputMode = 'readings';
+let currentResult = null;
+
+function loadPeriods(){
+  try{ const s = localStorage.getItem(STORAGE_KEY); if(s){ const parsed = JSON.parse(s); if(Array.isArray(parsed) && parsed.length > 0) return parsed; } }catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_PERIODS));
+}
+function loadFees(){ try{ const v = localStorage.getItem(FEES_KEY); return v !== null ? Number(v) : 18; }catch(e){ return 18; } }
+
+function initClientData(){
+  const p = new URLSearchParams(location.search);
+  const name = p.get('n'); const key = p.get('k'); const prev = p.get('prev');
+  if (key && name) {
+    clientData = { name, key, sector: p.get('s')||'', blk: p.get('b')||'', bld: p.get('d')||'', apt: p.get('a')||'', prevReading: prev ? Number(prev) : 0 };
+    document.getElementById('clientInfoCard').classList.remove('hidden');
+    document.getElementById('clientName').textContent = `👤 ${clientData.name}`;
+    document.getElementById('clientAddress').textContent = `قطاع ${clientData.sector} · بلوك ${clientData.blk} · عمارة ${clientData.bld} · شقة ${clientData.apt}`;
+    setInputMode('readings');
+    const pRead = document.getElementById('prevReading');
+    pRead.value = clientData.prevReading;
+    pRead.setAttribute('readonly', 'true');
+    pRead.style.background = '#e2e8f0';
+    document.getElementById('archiveBtn').classList.remove('hidden');
+  } else {
+    setInputMode('readings');
+  }
+}
+
+function setInputMode(mode){
+  inputMode = mode;
+  const directBtn = document.getElementById('modeDirectBtn'); const readingsBtn = document.getElementById('modeReadingsBtn');
+  const directBox = document.getElementById('directModeBox'); const readingsBox = document.getElementById('readingsModeBox');
+  if (mode === 'readings'){
+    readingsBtn.classList.add('active'); directBtn.classList.remove('active');
+    directBox.classList.add('hidden'); readingsBox.classList.remove('hidden');
+  } else {
+    directBtn.classList.add('active'); readingsBtn.classList.remove('active');
+    readingsBox.classList.add('hidden'); directBox.classList.remove('hidden');
+  }
+}
+
+function updateConsumptionFromReadings(){
+  const prev = Number(document.getElementById('prevReading').value) || 0;
+  const curr = Number(document.getElementById('currReading').value) || 0;
+  const diff = curr - prev;
+  const valEl = document.getElementById('consumptionValue');
+  const errEl = document.getElementById('readingError');
+  if (diff < 0){ valEl.textContent = '0'; valEl.style.color = 'var(--danger)'; errEl.textContent = '⚠️ القراءة الحالية أقل من السابقة'; } 
+  else { valEl.textContent = smartFmt(diff); valEl.style.color = 'var(--primary)'; errEl.textContent = ''; }
+}
+
+const ArabicPeriodNames = ['', 'الأولى', 'الثانية', 'الثالثة', 'الرابعة', 'الخامسة', 'السادسة', 'السابعة', 'الثامنة', 'التاسعة', 'العاشرة'];
+function getTierDisplayName(name){ const n = parseInt(name); return (!isNaN(n) && n >= 1 && n <= 10) ? ArabicPeriodNames[n] : name; }
+function smartFmt(val){ const num = Number(val) || 0; return Number.isInteger(num) ? num.toLocaleString('en-US') : num.toLocaleString('en-US', {minimumFractionDigits:1, maximumFractionDigits:2}); }
+function parseDate(s){ const parts = String(s).split('-'); return { y: Number(parts[0])||2026, m: Number(parts[1])||1, d: Number(parts[2])||1 }; }
+function mIdx(y,m){ return y*12+(m-1); }
+function fmtMonthYear(y, m){ return new Date(y, m-1, 1).toLocaleDateString('ar-EG',{month:'long', year:'numeric'}); }
+
+function numberToArabicWords(n){
+  const num = Math.floor(Number(n) || 0);
+  if (num === 0) return 'فقط صِفْرٌ\nجنيها مصريا فقط لاغير';
+  const units = ['','مائة','مئتان','ثلاثمائة','أربعمائة','خمسمائة','ستمائة','سبعمائة','ثمانمائة','تسعمائة'];
+  const tens  = ['','عشرة','عشرون','ثلاثون','أربعون','خمسون','ستون','سبعون','ثمانون','تسعون'];
+  const teens = ['عشرة','أحد عشر','اثنا عشر','ثلاثة عشر','أربعة عشر','خمسة عشر','ستة عشر','سبعة عشر','ثمانية عشر','تسعة عشر'];
+  const ones  = ['','واحد','اثنان','ثلاثة','أربعة','خمسة','ستة','سبعة','ثمانية','تسعة'];
+  function less1000(val){
+    if (val === 0) return ''; let res = ''; const h = Math.floor(val/100); const rem = val % 100;
+    if (h > 0) res += units[h];
+    if (rem > 0){ if (res) res += ' و'; if (rem < 10) res += ones[rem]; else if (rem < 20) res += teens[rem-10]; else { const t = Math.floor(rem/10); const o = rem % 10; if (o > 0) res += ones[o] + ' و'; res += tens[t]; } }
+    return res;
+  }
+  function convert(val){
+    if (val === 0) return ''; if (val < 1000) return less1000(val);
+    if (val < 1000000){ const th = Math.floor(val/1000); const rem = val % 1000; let thStr = ''; if (th === 1) thStr = 'ألف'; else if (th === 2) thStr = 'ألفان'; else if (th <= 10) thStr = less1000(th) + ' آلاف'; else thStr = less1000(th) + ' ألفاً'; if (rem > 0) thStr += ' و' + less1000(rem); return thStr; }
+    return String(val);
+  }
+  return `فقط ${convert(num)}\nجنيها مصريا فقط لاغير`;
+}
+
+function monthlyCostDetailed(cons, tiers){
+  let rem = Number(cons) || 0; let cost = 0; let prev = 0; const tableRows = [];
+  if (!Array.isArray(tiers)) return { cost:0, rows:[] };
+  for (let i=0; i<tiers.length; i++){
+    if (rem <= 0) break; const t = tiers[i];
+    let cap = (t.limit === null || t.limit === undefined || t.limit === '' || isNaN(t.limit)) ? rem : Math.max(0, Number(t.limit) - prev);
+    const used = Math.min(rem, cap); const tierCost = used * (Number(t.price) || 0); cost += tierCost;
+    if (used > 0) tableRows.push({ tierName: `شريحة ${getTierDisplayName(t.name)}`, price: t.price, meters: used, total: tierCost });
+    rem -= used; if (t.limit !== null && t.limit !== undefined && t.limit !== '' && !isNaN(t.limit)){ prev = Number(t.limit); }
+  }
+  return { cost, rows: tableRows };
+}
+
+function calculateInternal(){
+  if (inputMode === 'readings'){
+    const prev = Number(document.getElementById('prevReading').value) || 0;
+    const curr = Number(document.getElementById('currReading').value) || 0;
+    if (curr < prev) return { error: 'reading_negative' };
+  }
+  const months = Number(document.getElementById('months').value) || 1;
+  if (months < 1) return { error: 'months_invalid' };
+  let cons = 0, prevReading = 0, currReading = 0;
+  if (inputMode === 'readings'){ prevReading = Number(document.getElementById('prevReading').value) || 0; currReading = Number(document.getElementById('currReading').value) || 0; cons = currReading - prevReading; } 
+  else { cons = Number(document.getElementById('consumption').value) || 0; }
+
+  const avg = cons / months; const now = new Date();
+  const targetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+  const aEnd = mIdx(targetDate.getFullYear(), targetDate.getMonth() + 1);
+  const aStart = aEnd - months + 1;
+  const endMonthName = targetDate.toLocaleDateString('ar-EG', {month:'long', year:'numeric'});
+  const billPeriodText = `فاتورة شهر ${endMonthName}`;
+  const sorted = [...periods].sort((a,b)=> a.date.localeCompare(b.date));
+  let totalConsumptionCost = 0; const rows = []; let totalCovered = 0;
+
+  for (let i=0; i<sorted.length; i++){
+    const pDate = parseDate(sorted[i].date);
+    const start = (i === 0) ? -Infinity : mIdx(pDate.y, pDate.m);
+    const nextPDate = (i < sorted.length - 1) ? parseDate(sorted[i+1].date) : null;
+    const end = nextPDate === null ? Infinity : mIdx(nextPDate.y, nextPDate.m) - 1;
+    const s = Math.max(start, aStart); const e = Math.min(end, aEnd); const overlap = Math.max(0, e - s + 1);
+    if (overlap === 0) continue;
+    const res = monthlyCostDetailed(avg, sorted[i].tiers);
+    const sub = overlap * res.cost; totalConsumptionCost += sub; totalCovered += overlap;
+    const startYear = Math.floor(s/12), startMonth = (s % 12) + 1;
+    const endYear = Math.floor(e/12), endMonth = (e % 12) + 1;
+    rows.push({ fromText: fmtMonthYear(startYear, startMonth), toText: fmtMonthYear(endYear, endMonth), months: overlap, monthlyCost: res.cost, subtotal: sub, tierRows: res.rows, avg: avg });
+  }
+  const exactGrandTotal = totalConsumptionCost + fees;
+  const grandTotal = Math.round(exactGrandTotal);
+  return { months, cons, fees, avg, rows, inputMode, prevReading, currReading, totalConsumptionCost, grandTotal, exactGrandTotal, totalCovered, billPeriodText, grandTotalWords: numberToArabicWords(grandTotal) };
+}
+
+function performCalculation(){
+  const r = calculateInternal();
+  if (r.error){ alert('⚠️ بيانات غير صحيحة'); return; }
+  currentResult = r; showResult(r);
+}
+
+function showResult(r){
+  const isSinglePeriod = (r.rows.length === 1);
+  const isSingleMonth = (r.months === 1);
+  let inputsRowsHtml = (r.inputMode === 'readings') ? `
+      <div class="sb-row"><span class="sb-label">أشهر المحاسبة</span><span class="sb-value">${r.months}</span></div>
+      <div class="sb-row"><span class="sb-label">القراءة السابقة</span><span class="sb-value">${smartFmt(r.prevReading)}</span></div>
+      <div class="sb-row"><span class="sb-label">القراءة الحالية</span><span class="sb-value">${smartFmt(r.currReading)}</span></div>
+      <div class="sb-row"><span class="sb-label">الاستهلاك</span><span class="sb-value">${smartFmt(r.cons)} m³</span></div>` : `
+      <div class="sb-row"><span class="sb-label">أشهر المحاسبة</span><span class="sb-value">${r.months}</span></div>
+      <div class="sb-row"><span class="sb-label">الاستهلاك</span><span class="sb-value">${smartFmt(r.cons)} m³</span></div>`;
+
+  const summaryHtml = `<div class="summary-box"><div class="sb-title">📋 البيانات المُدخَلة</div>${inputsRowsHtml}</div>`;
+  let detailsHtml = '';
+  if (!isSinglePeriod){ detailsHtml += `<div style="background:var(--ember-soft);color:var(--ember);font-weight:700;font-size:12px;padding:8px;border-radius:8px;text-align:center;margin-bottom:12px;">⚠️ كل فترة زمنية محسوبة طبقا للأسعار المقررة لتلك الفترة</div>`; }
+
+  r.rows.forEach((row, idx)=>{
+    let periodLabel = !isSinglePeriod ? `الفترة ${ArabicPeriodNames[idx + 1] || (idx + 1)}:` : '';
+    let tableRowsHtml = '';
+    row.tierRows.forEach(tr=>{ tableRowsHtml += `<tr><td>${tr.tierName}</td><td style="direction:ltr;">${smartFmt(tr.meters)}</td><td style="direction:ltr;">${smartFmt(tr.price)}</td><td style="direction:ltr;">${smartFmt(tr.total)}</td></tr>`; });
+    detailsHtml += `
+      <div style="background:var(--card);padding:12px;border-radius:10px;margin-bottom:12px;border:1px solid var(--line);">
+        <div style="display:flex;justify-content:space-between;align-items:center;font-weight:800;font-size:13px;color:var(--primary);margin-bottom:8px;">
+          <span>${periodLabel}</span><span>أشهر المحاسبة ${row.months}</span>
+        </div>
+        ${!isSinglePeriod ? `<div style="font-size:12px;color:var(--mute);margin:8px 0;font-weight:600;text-align:center;">من ${row.fromText} إلى ${row.toText}</div>` : ''}
+        <table class="custom-table">
+          <thead><tr><th>الشريحة</th><th>الأمتار</th><th>السعر</th><th>الإجمالي</th></tr></thead>
+          <tbody>${tableRowsHtml}</tbody>
+        </table>
+        ${!isSingleMonth ? `<div style="font-size:12px;color:var(--primary);font-weight:700;text-align:left;background:var(--bg);padding:8px;border-radius:6px;border:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;margin-top:6px;"><span>مبلغ الاستهلاك لشهر واحد</span><span style="direction:ltr;font-size:13px;">${smartFmt(row.monthlyCost)} ج.م</span></div>` : ''}
+      </div>`;
+  });
+
+  if (!isSingleMonth){
+    detailsHtml += `
+      <div style="background:var(--primary-soft);color:var(--primary);font-weight:700;font-size:13px;padding:8px 12px;border-radius:8px;text-align:center;margin:12px 0 10px;">حساب الفاتورة الإجمالية</div>
+      <table class="custom-table">
+        <thead><tr>${!isSinglePeriod ? `<th>الفترة</th>` : ''}<th>الشهور</th><th>تكلفة الشهر</th><th>الإجمالي</th></tr></thead>
+        <tbody>`;
+    r.rows.forEach((row, idx)=>{
+      const periodLabel = `الفترة ${ArabicPeriodNames[idx+1] || (idx+1)}`;
+      detailsHtml += `<tr>${!isSinglePeriod ? `<td>${periodLabel}</td>` : ''}<td>${row.months}</td><td style="direction:ltr;">${smartFmt(row.monthlyCost)}</td><td style="direction:ltr;">${smartFmt(row.subtotal)}</td></tr>`;
+    });
+    detailsHtml += `
+          <tr><td colspan="${!isSinglePeriod ? '3' : '2'}" style="text-align:right;font-weight:700;">الرسوم</td><td style="direction:ltr;">${smartFmt(r.fees)}</td></tr>
+          <tr class="total-row"><td colspan="${!isSinglePeriod ? '3' : '2'}" style="text-align:right;">الإجمالي</td><td style="direction:ltr;text-align:center;">${smartFmt(r.grandTotal)} ج.م</td></tr>
+        </tbody>
+      </table>`;
+  } else {
+    detailsHtml += `
+      <table class="custom-table" style="margin-top:12px;">
+        <tbody>
+          <tr><td style="text-align:right;font-weight:700;">تكلفة الاستهلاك</td><td style="direction:ltr;text-align:left;width:120px;font-weight:700;">${smartFmt(r.totalConsumptionCost)} ج.م</td></tr>
+          <tr><td style="text-align:right;font-weight:700;">الرسوم</td><td style="direction:ltr;text-align:left;font-weight:700;">${smartFmt(r.fees)} ج.م</td></tr>
+          <tr class="total-row"><td style="text-align:right;">إجمالى الفاتورة</td><td style="direction:ltr;text-align:left;">${smartFmt(r.grandTotal)} ج.م</td></tr>
+        </tbody>
+      </table>`;
+  }
+
+  let warning = r.totalCovered !== r.months ? `<div class="warning">⚠️ الأشهر المُغطاة لا تساوي عدد أشهر المحاسبة.</div>` : '';
+  let avgBoxHtml = !isSingleMonth ? `
+      <div style="background:var(--bg);padding:14px;border-radius:12px;margin-bottom:16px;font-size:13px;color:var(--ink);line-height:1.8;border:1px solid var(--line);text-align:center;">
+        <div style="font-weight:800;color:var(--primary);margin-bottom:5px;font-size:13px;">متوسط الاستهلاك الشهرى</div>
+        <div>${smartFmt(r.cons)} ÷ ${r.months}</div>
+        <div style="font-weight:800;color:var(--primary);margin-top:6px;font-size:16px;">${smartFmt(r.avg)} m³</div>
+      </div>` : '';
+
+  const html = `
+    <div class="modal-overlay" id="resultModal">
+      <div class="modal">
+        <div class="modal-header">
+          <div class="bill-title">📅 ${r.billPeriodText}</div>
+          <div class="label">إجمالي الفاتورة</div>
+          <div class="total">${smartFmt(r.grandTotal)}</div>
+          <div class="total-words">${r.grandTotalWords}</div>
+        </div>
+        <div class="modal-body show" id="modalDetailsBody" style="padding-top:16px;">
+          ${summaryHtml}
+          <div id="detailsWrapper" class="details-container">${avgBoxHtml}${detailsHtml}${warning}</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-toggle-details" id="toggleDetailsBtn" onclick="toggleResultDetails()">📋 عرض التفاصيل الكاملة</button>
+          <button class="btn-close" id="closeModal">إغلاق</button>
+        </div>
+      </div>
+    </div>`;
+
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+  document.getElementById('closeModal').onclick = ()=> document.getElementById('resultModal').remove();
+  document.getElementById('resultModal').addEventListener('click', e=> { if (e.target.id === 'resultModal') e.target.remove(); });
+}
+
+function toggleResultDetails(){
+  const wrapper = document.getElementById('detailsWrapper');
+  const btn = document.getElementById('toggleDetailsBtn');
+  if (!wrapper || !btn) return;
+  const isHidden = (wrapper.style.display !== 'block');
+  wrapper.style.display = isHidden ? 'block' : 'none';
+  btn.textContent = isHidden ? '🔼 إخفاء التفاصيل' : '📋 عرض التفاصيل الكاملة';
+}
+
+async function saveToArchive(){
+  if (!clientData || !currentResult) return alert('⚠️ لا توجد بيانات أو لم يتم الحساب.');
+  if (!confirm('هل تريد حفظ القراءة الحالية والفاتورة في الأرشيف؟')) return;
+  try{
+    const { put } = await import('../core/db.js');
+    const id = 'inv-' + Date.now();
+    await put('invoices', id, {
+      id, key: clientData.key, name: clientData.name,
+      address: `قطاع ${clientData.sector} · بلوك ${clientData.blk} · عمارة ${clientData.bld} · شقة ${clientData.apt}`,
+      prevReading: currentResult.prevReading, currReading: currentResult.currReading,
+      consumption: currentResult.cons, totalAmount: currentResult.grandTotal,
+      date: new Date().toISOString(), details: currentResult
+    });
+    alert('✅ تم حفظ الفاتورة والقراءة بنجاح!');
+    if (window.parent && window.parent !== window) window.parent.document.querySelector('dialog[open]')?.close();
+  }catch(err){ alert('❌ حدث خطأ: ' + err.message); }
+}
+
+function showCurrentPrices(){
+  const sorted = [...periods].sort((a,b)=> a.date.localeCompare(b.date));
+  if (!sorted.length) return;
+  const latest = sorted[sorted.length - 1];
+  let tableRows = '';
+  latest.tiers.forEach(t=>{ tableRows += `<tr><td>شريحة ${getTierDisplayName(t.name)}</td><td style="direction:ltr;">${(t.limit === null || t.limit === undefined || t.limit === '') ? '∞' : smartFmt(t.limit)}</td><td style="direction:ltr;">${smartFmt(t.price)}</td></tr>`; });
+  
+  const html = `
+    <div class="modal-overlay" id="pricesModal">
+      <div class="modal" style="max-width:350px;">
+        <div class="modal-header" style="background:var(--ember);padding:15px;">
+          <div class="bill-title">💰 الأسعار المطبقة</div>
+        </div>
+        <div class="modal-body show" style="padding:15px;">
+          <table class="custom-table"><thead><tr><th>الشريحة</th><th>الأمتار</th><th>السعر</th></tr></thead><tbody>${tableRows}</tbody></table>
+          <div style="margin-top:10px;padding:10px;background:var(--ember-soft);border-radius:8px;text-align:center;font-weight:800;color:var(--ember);font-size:13px;border:1px solid var(--ember);">الرسوم: ${smartFmt(fees)} ج.م</div>
+        </div>
+        <div class="modal-footer" style="padding:10px;"><button class="btn-close" id="closePricesModal" style="padding:10px;font-size:13px;">إغلاق</button></div>
+      </div>
+    </div>`;
+
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  document.body.appendChild(div.firstElementChild);
+  document.getElementById('closePricesModal').onclick = ()=> document.getElementById('pricesModal').remove();
+  document.getElementById('pricesModal').addEventListener('click', e=>{ if (e.target.id === 'pricesModal') e.target.remove(); });
+}
+
+(function init(){
+  periods = loadPeriods(); fees = loadFees();
+  const now = new Date();
+  const sorted = [...periods].sort((a,b)=> b.date.localeCompare(a.date));
+  if (sorted.length) document.getElementById('updatedLabel').textContent = `آخر تحديث للأسعار: ${new Date(sorted[0].date).toLocaleDateString('ar-EG')}`;
+  initClientData();
+  ['months', 'consumption', 'prevReading', 'currReading'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', ()=> { if (id === 'prevReading' || id === 'currReading') updateConsumptionFromReadings(); });
+  });
+})();
+</script>
+</body>
+</html>
